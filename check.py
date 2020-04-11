@@ -2,20 +2,22 @@ from helium import *
 from time import sleep
 import json
 import requests
+from win10toast import ToastNotifier
+import datetime
 
 # -- data -- #
-credentials = json.loads(open("credentials.json"))
+credentials = json.loads(''.join(open("credentials.json").readlines()))
 INSTACART_EMAIL = credentials["INSTACART_EMAIL"]
 INSTACART_PASSWORD = credentials["INSTACART_PASSWORD"]
-MAILGUN_URL = credentials["MAILGUN_URL"]
-MAILGUN_API_KEY = credentials["MAILGUN_API_KEY"]
 STORE_LIST = credentials["STORE_LIST"]
 INSTACART_BASE_URL = credentials["INSTACART_BASE_URL"]
 INSTACART_DELIVERY_URL = credentials["INSTACART_DELIVERY_URL"]
 NOTIFICATION_EMAIL = credentials["NOTIFICATION_EMAIL"]
 
+wait_time = 60 # in seconds
+
 # -- login logic -- #
-start_chrome(INSTACART_BASE_URL, headless=True)
+start_chrome(INSTACART_BASE_URL)#, headless=True)
 click(Link("Log In"))
 write(INSTACART_EMAIL, into="Email address")
 write(INSTACART_PASSWORD, into="Password")
@@ -26,7 +28,7 @@ wait_until(Link("See delivery times").exists)
 # -- check store logic -- #
 def check_delivery_times_for_store(store_name):
     go_to(INSTACART_DELIVERY_URL.format(store_name))
-    sleep(2)
+    sleep(7)
     if Text("No delivery times available").exists():
         return False, "No Delivery times available. Try again later?"
     else:
@@ -38,18 +40,11 @@ def check_delivery_times_for_store(store_name):
 
 # -- send email -- #
 def send_simple_message(message):
-    return requests.post(
-        "https://api.mailgun.net/v3/{}/messages".format(MAILGUN_DOMAIN),
-        auth=("api", MAILGUN_API_KEY),
-        data={
-            "from": "Instacart Delivery Notifier <instacart_notify@{}>".format(
-                MAILGUN_DOMAIN
-            ),
-            "to": NOTIFICATION_EMAIL,
-            "subject": "Instacart Delivery Time Available!!",
-            "text": message,
-        },
-    )
+    print("[%s] Available!" % datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    t = ToastNotifier()
+    t.show_toast("Instacart", "Available!", duration=10, threaded=True)
+    return
+
 
 
 # -- check all stores in list and notify -- #
@@ -59,8 +54,12 @@ def main():
         if availability:
             send_simple_message(message)
         else:
-            pass
+            print("[%s] Checked" % datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
 
 if __name__ == "__main__":
-    main()
+    t = ToastNotifier()
+    t.show_toast("Instacart", "Initialized", duration=10, threaded=True)
+    while True:
+        main()
+        sleep(wait_time - 7)
